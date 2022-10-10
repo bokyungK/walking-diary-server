@@ -4,6 +4,8 @@ const cors = require('cors');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const mysql = require('mysql2');
+const cookieParser = require('cookie-parser');
+const { auth } = require('./middleware/auth');
 
 // database 연동
 const db = mysql.createConnection({
@@ -14,12 +16,13 @@ const db = mysql.createConnection({
 });
 db.connect();
 
-app.use(cors());
+app.use(cors({origin: 'http://localhost:3000', credentials: true}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
 
-// 회원가입 
+// join 
 app.post('/join', async function (req, res) {
     const { userId, userPw, userName, userPetName } = req.body;
     const hash = await argon2.hash(userPw);
@@ -35,22 +38,40 @@ app.post('/join', async function (req, res) {
     });
 });
 
-// 로그인
+// login
 app.post('/login', function (req, res) {
     const { userId, userPw } = req.body;
     db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function (err, rows, fields) {
         if (rows.length === 0) {
             res.send('Fail_id');
+            return
+        }
+        if (await argon2.verify(rows[0].pw, userPw)) {
+            const access_token = jwt.sign({ userId } , 'secure');
+            res.cookie('access_token', access_token);
+            res.send('Success');
         } else {
-            if (await argon2.verify(rows[0].pw, userPw)) {
-                res.send('Success');
-            } else {
-                res.send('Fail_pw');
-            }
+            res.send('Fail_pw');
         }
     });
 })
 
+// mypage
+app.get('/info', function (req, res) {
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT name, id, dog_name FROM user WHERE id='${userId}'`, function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+        res.send(rows);
+    })
+})
 
 app.listen(3001, () => {
     console.log('Server is running!');
