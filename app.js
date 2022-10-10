@@ -24,19 +24,29 @@ app.post('/join', async function (req, res) {
     const { userId, userPw, userName, userPetName } = req.body;
     const hash = await argon2.hash(userPw);
     db.query(`INSERT INTO user(id, pw, name, dog_name) VALUES('${userId}', '${hash}', '${userName}', '${userPetName}')`,
-    function (err, result, fields) {
-        res.send('Success');
+    function (err, rows, fields) {
+        if (rows) {
+            res.send('Success');
+            return;
+        }
+        if (err) {
+            res.send('Fail');
+        }
     });
 });
 
 // 로그인
 app.post('/login', function (req, res) {
     const { userId, userPw } = req.body;
-    userInfo = db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function (err, result, fields) {
-        if (await argon2.verify(result[0].pw, userPw)) {
-            res.send('Success');
+    db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function (err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('Fail_id');
         } else {
-            res.send('Fail');
+            if (await argon2.verify(rows[0].pw, userPw)) {
+                res.send('Success');
+            } else {
+                res.send('Fail_pw');
+            }
         }
     });
 })
