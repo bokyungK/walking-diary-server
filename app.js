@@ -73,6 +73,41 @@ app.get('/info', function (req, res) {
     })
 })
 
+// withdrawal
+app.get('/withdrawal', function (req, res) {
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`DELETE FROM user WHERE id='${userId}'`, function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+        res.send('Success');
+    })
+    // dog, diary 테이블 정보도 삭제되도록 추가하기!
+})
+
+// logout
+app.get('/logout', function (req, res) {
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT name, id, dog_name FROM user WHERE id='${userId}'`, function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+        res.send('Success');
+    })
+})
+
 app.listen(3001, () => {
     console.log('Server is running!');
 });
