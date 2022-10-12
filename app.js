@@ -5,7 +5,7 @@ const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const mysql = require('mysql2');
 const cookieParser = require('cookie-parser');
-const { auth } = require('./middleware/auth');
+// const { auth } = require('./middleware/auth');
 
 // database 연동
 const db = mysql.createConnection({
@@ -25,6 +25,7 @@ app.use(cookieParser());
 app.post('/join', async function (req, res) {
     const { userId, userPw, userName } = req.body;
     const hash = await argon2.hash(userPw);
+
     db.query(`INSERT INTO user(id, pw, name) VALUES('${userId}', '${hash}', '${userName}')`,
     function (err, rows, fields) {
         if (err) {
@@ -38,6 +39,7 @@ app.post('/join', async function (req, res) {
 // login
 app.post('/login', function (req, res) {
     const { userId, userPw } = req.body;
+
     db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function (err, rows, fields) {
         if (rows.length === 0) {
             res.send('Fail_id');
@@ -59,17 +61,21 @@ app.post('/login', function (req, res) {
 // mypage
 app.get('/info', function (req, res) {
     const { access_token } = req.cookies;
+
     if (!access_token) {
         res.send('There is no access_token');
         return;
     }
+
     const { userId } = jwt.verify(access_token, 'secure');
+
     db.query(`SELECT name, id FROM user WHERE id='${userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
             res.send('This is not a valid token');
             return;
         }
         const res1 = rows[0];
+
         db.query(`SELECT dog_name_1, dog_name_2, dog_name_3 FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
             if (rows.length === 0) {
                 res.send(res1);
@@ -86,6 +92,7 @@ app.post('/info', async function (req, res) {
     const { access_token } = req.cookies;
     const { userPw, userNewPw, userDogName1, userDogName2, userDogName3 } = req.body;
     const { userId } = jwt.verify(access_token, 'secure');
+
     if (userNewPw !== '') {
         if (!access_token) {
             res.send('There is no access_token');
@@ -100,6 +107,7 @@ app.post('/info', async function (req, res) {
                 res.send('Password is not correct');
                 return;
             }
+
             const newHash = await argon2.hash(userNewPw);
             db.query(`UPDATE user SET pw='${newHash}' WHERE id='${userId}'`, function(err, rows, fields) {
                 if (err) {
@@ -111,11 +119,11 @@ app.post('/info', async function (req, res) {
         })
     }
     
-    const userDogNames = [userDogName1, userDogName2, userDogName3]
     if (!access_token) {
         res.send('There is no access_token');
         return;
     }
+
     db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
         if (rows.length === 0) {
             res.send('This is not a valid token');
@@ -126,6 +134,7 @@ app.post('/info', async function (req, res) {
             return;
         }
     })
+
     db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
             db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1}', '${userDogName2}', '${userDogName2}')`,
@@ -144,10 +153,12 @@ app.post('/info', async function (req, res) {
 app.get('/withdrawal', function (req, res) {
     const { access_token } = req.cookies;
     const { userId } = jwt.verify(access_token, 'secure');
+
     if (!access_token) {
         res.send('There is no access_token');
         return;
     }
+
     db.query(`DELETE FROM user WHERE id='${userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
             res.send('This is not a valid token');
@@ -162,10 +173,12 @@ app.get('/withdrawal', function (req, res) {
 app.get('/logout', function (req, res) {
     const { access_token } = req.cookies;
     const { userId } = jwt.verify(access_token, 'secure');
+
     if (!access_token) {
         res.send('There is no access_token');
         return;
     }
+    
     db.query(`SELECT name, id FROM user WHERE id='${userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
             res.send('This is not a valid token');
