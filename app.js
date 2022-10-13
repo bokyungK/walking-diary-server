@@ -169,19 +169,40 @@ app.get('/withdrawal', function (req, res) {
     const { access_token } = req.cookies;
     const { userId } = jwt.verify(access_token, 'secure');
 
+    // auth
     if (!access_token) {
         res.send('There is no access_token');
         return;
     }
 
-    db.query(`DELETE FROM user WHERE id='${userId}'`, function(err, rows, fields) {
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
             res.send('This is not a valid token');
             return;
         }
-        res.send('Success');
     })
-    // dog, diary 테이블 정보도 삭제되도록 추가하기!
+
+    // data
+    const tables = ['diary', 'dog', 'user'];
+    tables.forEach((table) => {
+        db.query(`SELECT * FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
+            if (rows.length !== 0) {
+                db.query(`DELETE FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
+                    if (err) {
+                        throw err;
+                    }
+                })
+            }
+        })
+    })
+    res.send('Success');
+
+    // image
+    const directory = `./photos/${userId}`;
+    const isTrue = fs.existsSync(directory);
+    if (isTrue) {
+        fs.rmSync(directory , { recursive: true });
+    }
 })
 
 // mypage-logout
@@ -252,6 +273,7 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
             res.send('Success');
         })
         
+        // image
         const clearDate = date[0].replace('-', '').replace('-', '');
         const directories = [`./photos/${userId}`, `./photos/${userId}/${clearDate}`, `./photos/${userId}/${clearDate}/${selectedDog}`];
         directories.forEach((directory) => {
@@ -261,7 +283,6 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
             }
         })
 
-        // image
         const fileName = {
             diaryLength: rows.length + 1,
             today: new Date().toISOString().slice(0, 10).replace('-', '').replace('-', ''),
