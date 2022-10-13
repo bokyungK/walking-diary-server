@@ -1,10 +1,23 @@
+const fs = require('fs');
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const mysql = require('mysql2');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
-const mysql = require('mysql2');
 const cookieParser = require('cookie-parser');
+const multer  = require('multer')
+const path = require("path");
+const storage = multer.diskStorage({
+    destination: './photos',
+    filename: function(req, file, cb) {
+        cb(null, new Date().valueOf() + path.extname(file.originalname));
+    }
+  });
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 1000000 }
+});
 // const { auth } = require('./middleware/auth');
 
 // database 연동
@@ -20,6 +33,8 @@ app.use(cors({origin: 'http://localhost:3000', credentials: true}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+
 
 // join 
 app.post('/join', async function (req, res) {
@@ -178,13 +193,85 @@ app.get('/logout', function (req, res) {
         res.send('There is no access_token');
         return;
     }
-    
+
     db.query(`SELECT name, id FROM user WHERE id='${userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
             res.send('This is not a valid token');
             return;
         }
         res.send('Success');
+    })
+})
+
+// write-diary
+app.get('/get-dogs', function (req, res) {
+    const { access_token } = req.cookies;
+
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+
+    db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+        res.send(rows[0]);
+    })
+})
+
+app.post('/write-diary', upload.single('img'), function(req, res, next) {
+    const { date, weather, selectedDog, title, content } = JSON.parse(req.body.info);
+    const { access_token } = req.cookies;
+    const { userId } = jwt.verify(access_token, 'secure');
+
+    // auth
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+    })
+
+    // data
+    db.query(`SELECT * FROM diary WHERE id='${userId}'`, function(err, rows, fields) {
+        db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content)
+         VALUES('${userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}')`, 
+         function(err, rows, fields) {
+            if (err) {
+                console.log(err);
+                return;
+            }
+            res.send('Success');
+        })
+        
+        const clearDate = date[0].replace('-', '').replace('-', '');
+        const directories = [`./photos/${userId}`, `./photos/${userId}/${clearDate}`, `./photos/${userId}/${clearDate}/${selectedDog}`];
+        directories.forEach((directory) => {
+            const isTrue = fs.existsSync(directory);
+            if (!isTrue) {
+                fs.mkdirSync(directory);
+            }
+        })
+
+        // image
+        const fileName = {
+            diaryLength: rows.length + 1,
+            today: new Date().toISOString().slice(0, 10).replace('-', '').replace('-', ''),
+            path: path.extname(req.file.originalname),
+        }
+        const fileNewName = `${fileName.today}_${selectedDog}_${fileName.diaryLength}${fileName.path}`
+        fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${clearDate}/${selectedDog}/${fileNewName}`,
+         function(err) {
+            console.log(err);
+         })
     })
 })
 
