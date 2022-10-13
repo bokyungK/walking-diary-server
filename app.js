@@ -108,11 +108,13 @@ app.post('/info', async function (req, res) {
     const { userPw, userNewPw, userDogName1, userDogName2, userDogName3 } = req.body;
     const { userId } = jwt.verify(access_token, 'secure');
 
+    // password
     if (userNewPw !== '') {
         if (!access_token) {
             res.send('There is no access_token');
             return;
         }
+    
         db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
             if (rows.length === 0) {
                 res.send('This is not a valid token');
@@ -134,6 +136,7 @@ app.post('/info', async function (req, res) {
         })
     }
     
+    // dogs
     if (!access_token) {
         res.send('There is no access_token');
         return;
