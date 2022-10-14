@@ -33,10 +33,11 @@ app.use(cors({origin: 'http://localhost:3000', credentials: true}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(express.static('photos'));
 
 
 
-// join 
+// Join 
 app.post('/join', async function (req, res) {
     const { userId, userPw, userName } = req.body;
     const hash = await argon2.hash(userPw);
@@ -51,7 +52,7 @@ app.post('/join', async function (req, res) {
     })
 });
 
-// login
+// Login
 app.post('/login', function (req, res) {
     const { userId, userPw } = req.body;
 
@@ -73,7 +74,7 @@ app.post('/login', function (req, res) {
     });
 })
 
-// mypage
+// Mypage
 app.get('/info', function (req, res) {
     const { access_token } = req.cookies;
 
@@ -176,7 +177,7 @@ app.post('/info', async function (req, res) {
     res.send('Success');
 })
 
-// mypage-withdrawal
+// Mypage - withdrawal
 app.get('/withdrawal', function (req, res) {
     const { access_token } = req.cookies;
     const { userId } = jwt.verify(access_token, 'secure');
@@ -221,7 +222,7 @@ app.get('/withdrawal', function (req, res) {
     }
 })
 
-// mypage-logout
+// Mypage - logout
 app.get('/logout', function (req, res) {
     const { access_token } = req.cookies;
     const { userId } = jwt.verify(access_token, 'secure');
@@ -240,7 +241,7 @@ app.get('/logout', function (req, res) {
     })
 })
 
-// write-diary
+// WriteDiary
 app.get('/get-dogs', function (req, res) {
     const { access_token } = req.cookies;
 
@@ -279,8 +280,16 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
 
     // data
     db.query(`SELECT * FROM diary WHERE id='${userId}'`, function(err, rows, fields) {
-        db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content)
-         VALUES('${userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}')`, 
+        const day = `${new Date().getFullYear()}-${new Date().getMonth() + 1 < 10 ? '0' + (new Date().getMonth() + 1) : new Date().getMonth() + 1}-${new Date().getDate() < 10 ? '0' + new Date().getDate() : new Date().getDate()}`;
+        const fileName = {
+            diaryLength: rows.length + 1,
+            today: day.replace('-', '').replace('-', ''),
+            path: path.extname(req.file.originalname),
+        }
+        const fileNewName = `${fileName.today}_${selectedDog}_${fileName.diaryLength}${fileName.path}`
+
+        db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content, image_name)
+         VALUES('${userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}', '${fileNewName}')`, 
          function(err, rows, fields) {
             if (err) {
                 console.log(err);
@@ -290,27 +299,70 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
         })
         
         // image
-        const clearDate = date[0].replace('-', '').replace('-', '');
-        const directories = [`./photos/${userId}`, `./photos/${userId}/${clearDate}`, `./photos/${userId}/${clearDate}/${selectedDog}`];
-        directories.forEach((directory) => {
-            const isTrue = fs.existsSync(directory);
-            if (!isTrue) {
+        const directory = `./photos/${userId}`;
+        const isTrue = fs.existsSync(directory);
+        if (!isTrue) {
                 fs.mkdirSync(directory);
-            }
-        })
-
-        const fileName = {
-            diaryLength: rows.length + 1,
-            today: new Date().toISOString().slice(0, 10).replace('-', '').replace('-', ''),
-            path: path.extname(req.file.originalname),
         }
-        const fileNewName = `${fileName.today}_${selectedDog}_${fileName.diaryLength}${fileName.path}`
-        fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${clearDate}/${selectedDog}/${fileNewName}`,
+
+        fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${fileNewName}`,
          function(err) {
             console.log(err);
          })
     })
 })
+
+
+// MyDiary
+app.get('/diary', function(req, res) {
+
+    // auth
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+    })
+
+    // data
+    db.query(`SELECT * FROM diary WHERE id='${userId}'`, async function(err, rows, fields) {
+        res.send(rows);
+        console.log(rows);
+    })
+})
+
+// DetailedDiary
+app.post('/delete-diary', (req, res) => {
+
+    // auth
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+    })
+
+    // data
+    const { imageName } = req.body;
+    db.query(`DELETE FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
+        res.send('Success');
+    })
+})
+
 
 app.listen(3001, () => {
     console.log('Server is running!');
