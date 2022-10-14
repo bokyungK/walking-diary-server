@@ -131,39 +131,49 @@ app.post('/info', async function (req, res) {
                     res.send('This is not a valid token');
                     return;
                 }
-                res.send('Success');
             })
         })
     }
     
     // dogs
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
+    const dogNames = [userDogName1[1], userDogName2[1], userDogName3[1]];
+    if (dogNames.includes(false)) {
+        if (!access_token) {
+            res.send('There is no access_token');
+            return;
+        }
 
-    db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-        if (!await argon2.verify(rows[0].pw, userPw)) {
-            res.send('Password is not correct');
-            return;
-        }
-        db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
+        db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
             if (rows.length === 0) {
-                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1}', '${userDogName2}', '${userDogName3}')`,
-                function(err, rows, fields) {
-                    res.send('Success');
-                })
+                res.send('This is not a valid token');
                 return;
             }
-            db.query(`UPDATE dog SET dog_name_1='${userDogName1}', dog_name_2='${userDogName2}', dog_name_3='${userDogName3}' WHERE id='${userId}'`, function(err, rows, fields) {
-                res.send('Success');
+            if (!await argon2.verify(rows[0].pw, userPw)) {
+                res.send('Password is not correct');
+                return;
+            }
+            db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
+                if (rows.length === 0) {
+                    db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1[0]}', '${userDogName2[0]}', '${userDogName3[0]}')`,
+                    function(err, rows, fields) {
+                        res.send('Success');
+                    })
+                    return;
+                }
+                db.query('UPDATE dog SET' + 
+                `${dogNames[0] === false ? ` dog_name_1='${userDogName1[0]}'` : ''}` +
+                `${dogNames[1] === false ? `${dogNames[0] === false ? ',' : ''} dog_name_2='${userDogName2[0]}'` : ''}` +
+                `${dogNames[2] === false ? `${dogNames[0] === false || dogNames[1] === false ? ',' : ''} dog_name_3='${userDogName3[0]}'` : ''}` +
+                ` WHERE id='${userId}'`, function(err, rows, fields) {
+                    if (err) {
+                        console.log(err);
+                    }
+                })
             })
         })
-    })
+        return;
+    }
+    res.send('Success');
 })
 
 // mypage-withdrawal
