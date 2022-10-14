@@ -151,18 +151,17 @@ app.post('/info', async function (req, res) {
             res.send('Password is not correct');
             return;
         }
-    })
-
-    db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
-        if (rows.length === 0) {
-            db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1}', '${userDogName2}', '${userDogName2}')`,
-            function(err, rows, fields) {
+        db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
+            if (rows.length === 0) {
+                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1}', '${userDogName2}', '${userDogName2}')`,
+                function(err, rows, fields) {
+                    res.send('Success');
+                })
+                return;
+            }
+            db.query(`UPDATE dog SET dog_name_1='${userDogName1}', dog_name_2='${userDogName2}', dog_name_3='${userDogName3}' WHERE id='${userId}'`, function(err, rows, fields) {
                 res.send('Success');
             })
-            return;
-        }
-        db.query(`UPDATE dog SET dog_name_1='${userDogName1}', dog_name_2='${userDogName2}', dog_name_3='${userDogName3}' WHERE id='${userId}'`, function(err, rows, fields) {
-            res.send('Success');
         })
     })
 })
@@ -188,7 +187,11 @@ app.get('/withdrawal', function (req, res) {
     // data
     const tables = ['diary', 'dog', 'user'];
     tables.forEach((table) => {
-        db.query(`SELECT * FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
+        db.query(`SELECT * FROM ${table} WHERE id='${userId}'`, async function(err, rows, fields) {
+            if (!await argon2.verify(rows[0].pw, userPw)) {
+                res.send('Fail');
+                return;
+            }
             if (rows.length !== 0) {
                 db.query(`DELETE FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
                     if (err) {
