@@ -153,7 +153,7 @@ app.post('/info', async function (req, res) {
         }
         db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
             if (rows.length === 0) {
-                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1}', '${userDogName2}', '${userDogName2}')`,
+                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1}', '${userDogName2}', '${userDogName3}')`,
                 function(err, rows, fields) {
                     res.send('Success');
                 })
