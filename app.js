@@ -324,7 +324,7 @@ app.get('/diary', function(req, res) {
     }
 
     const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('This is not a valid token');
             return;
@@ -332,9 +332,20 @@ app.get('/diary', function(req, res) {
     })
 
     // data
-    db.query(`SELECT * FROM diary WHERE id='${userId}'`, async function(err, rows, fields) {
-        res.send(rows);
-        console.log(rows);
+    const resArr = [];
+    db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred='${true}'`, (err, rows, fields) => {
+        if (rows.length === 0) {
+            resArr[0] = '';
+            return
+        }
+        resArr[0] = rows;
+    })
+    db.query(`SELECT * FROM diary WHERE id='${userId}'`, (err, rows, fields) => {
+        if (rows.length === 0) {
+            return
+        }
+        resArr[1] = rows;
+        res.send(resArr);
     })
 })
 
@@ -361,6 +372,29 @@ app.post('/delete-diary', (req, res) => {
     db.query(`DELETE FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
         res.send('Success');
     })
+})
+
+app.post('/starred', (req, res) => {
+    const { starred, imageName } = req.body;
+
+        // auth
+        const { access_token } = req.cookies;
+        if (!access_token) {
+            res.send('There is no access_token');
+            return;
+        }
+    
+        const { userId } = jwt.verify(access_token, 'secure');
+        db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+            if (rows.length === 0) {
+                res.send('This is not a valid token');
+                return;
+            }
+        })
+
+        // data
+        db.query(`UPDATE diary SET starred='${starred}' WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+        })
 })
 
 
