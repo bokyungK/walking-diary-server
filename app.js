@@ -350,7 +350,7 @@ app.get('/diary', function(req, res) {
 })
 
 // DetailedDiary
-app.post('/update-diary', (req, res) => {
+app.post('/get-diary', (req, res) => {
 
     // auth
     const { access_token } = req.cookies;
@@ -368,7 +368,45 @@ app.post('/update-diary', (req, res) => {
     })
 
     // data
-    const { weather, dogName, title, content, imageName } = req.body;
+    const { imageName } = req.body;
+    db.query(`SELECT * FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+        res.send(rows[0]);
+    })
+})
+
+app.post('/update-diary', upload.single('img'), (req, res, next) => {
+
+    // auth
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+    })
+
+    const reqArr = [];
+    if (req.body.info) {
+        reqArr.push(JSON.parse(req.body.info));
+        console.log(reqArr);
+        
+        // image
+        fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${reqArr[0].imageName}`, (err) => {
+            console.error(1, err);
+         })
+
+    } else {
+        reqArr.push(req.body);
+    }
+
+    // data
+    const { weather, dogName, title, content, imageName } = reqArr[0];
     db.query(`SELECT * FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         if (rows.length === 0) {
             return;
@@ -376,7 +414,7 @@ app.post('/update-diary', (req, res) => {
         db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}' WHERE id='${userId}' AND image_name='${imageName}'`,
         (err, rows, fields) => {
             if (err) {
-                console.log(err);
+                console.error(2, err);
                 return;
             }
             res.send('Success');
