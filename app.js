@@ -297,7 +297,7 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
                 console.log(err);
                 return;
             }
-            res.send('Success');
+            res.send(fileNewName);
         })
         
         // image
@@ -317,7 +317,7 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
 
 // MyDiary
     // data for cards
-app.get('/diary', function(req, res) {
+app.post('/diaries', function(req, res) {
 
     // auth
     const { access_token } = req.cookies;
@@ -335,21 +335,50 @@ app.get('/diary', function(req, res) {
     })
 
     // data
+    const { order } = req.body;
     const resArr = [];
-    db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
-        if (rows.length === 0) {
-            resArr[0] = '';
-            return
-        }
-        resArr[0] = rows;
-    })
-    db.query(`SELECT * FROM diary WHERE id='${userId}'`, (err, rows, fields) => {
-        if (rows.length === 0) {
-            return
-        }
-        resArr[1] = rows;
-        res.send(resArr);
-    })
+    const favorites = db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
+            if (rows.length === 0) {
+                resArr[0] = '';
+                return
+            }
+            resArr[0] = rows;
+        })
+
+    switch(order) {
+        case null || '오래된 순서':
+            favorites
+            db.query(`SELECT * FROM diary WHERE id='${userId}'`, (err, rows, fields) => {
+                if (rows.length === 0) {
+                    return
+                }
+                resArr[1] = rows;
+                res.send(resArr);
+            })
+            break;
+        case '최신 순서':
+            favorites
+            db.query(`SELECT * FROM diary WHERE id='${userId}' ORDER BY date DESC`, async function(err, rows, fields) {
+                if (rows.length === 0) {
+                    res.send('Nothing');
+                    return;
+                }
+                resArr[1] = rows;
+                res.send(resArr);
+            })
+            break;
+        default:
+            favorites
+            db.query(`SELECT * FROM diary WHERE id='${userId}' AND dog_name='${order}'`, async function(err, rows, fields) {
+                if (rows.length === 0) {
+                    res.send('Nothing');
+                    return;
+                }
+                resArr[1] = rows;
+                res.send(resArr);
+            })
+            break;
+    }
 })
 
     // setting order
