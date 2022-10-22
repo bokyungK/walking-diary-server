@@ -316,8 +316,7 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
 
 
 // MyDiary
-    // data for cards
-app.post('/diaries', function(req, res) {
+app.get('/diaries', function(req, res) {
 
     // auth
     const { access_token } = req.cookies;
@@ -335,81 +334,14 @@ app.post('/diaries', function(req, res) {
     })
 
     // data
-    const { order } = req.body;
-    const resArr = [];
-    const cards = (state = '') => {
-        // favorite cards
-        db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
-            if (rows.length === 0) {
-                resArr[0] = '';
-                return
-            }
-            resArr[0] = rows;
-        })
-
-        // cards
-        db.query(`SELECT * FROM diary WHERE id='${userId}'` + state, (err, rows, fields) => {
-            if (rows.length === 0) {
-                return;
-            }
-            resArr[1] = rows;
-            res.send(resArr);
-        })
-    }
-
-    switch(order) {
-        case null || '오래된 순서' :
-            cards();
-            break;
-        case '최신 순서':
-            cards(' ORDER BY date DESC');
-            break;
-        default:
-            cards(` AND dog_name='${order}'`);
-            break;
-    }
-})
-
-    // setting order
-app.post('/order', (req, res) => {
-
-        // auth
-        const { access_token } = req.cookies;
-        if (!access_token) {
-            res.send('There is no access_token');
+    db.query(`SELECT * FROM diary WHERE id='${userId}'`, (err, rows, fields) => {
+        if (rows.length === 0) {
+            res.send('Nothing');
             return;
         }
-    
-        const { userId } = jwt.verify(access_token, 'secure');
-        db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-            if (rows.length === 0) {
-                res.send('This is not a valid token');
-                return;
-            }
-        })
-
-        const { order } = req.body;
-        const cards = (state = '') => {
-            db.query(`SELECT * FROM diary WHERE id='${userId}'` + state, async (err, rows, fields) => {
-                if (rows.length === 0) {
-                    res.send('Nothing');
-                    return;
-                }
-                res.send(rows)
-            })
-        }
         
-        switch(order) {
-            case '최신 순서':
-                cards(' ORDER BY date DESC');
-                break;
-            case '오래된 순서':
-                cards(' ORDER BY date ASC');
-                break;
-            default:
-                cards(` AND dog_name='${order}'`);
-                break;
-        }
+        res.send(rows);
+    })
 })
 
 // DetailedDiary
