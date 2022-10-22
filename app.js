@@ -337,7 +337,9 @@ app.post('/diaries', function(req, res) {
     // data
     const { order } = req.body;
     const resArr = [];
-    const favorites = db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
+    const cards = (state = '') => {
+        // favorite cards
+        db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
             if (rows.length === 0) {
                 resArr[0] = '';
                 return
@@ -345,38 +347,25 @@ app.post('/diaries', function(req, res) {
             resArr[0] = rows;
         })
 
+        // cards
+        db.query(`SELECT * FROM diary WHERE id='${userId}'` + state, (err, rows, fields) => {
+            if (rows.length === 0) {
+                return;
+            }
+            resArr[1] = rows;
+            res.send(resArr);
+        })
+    }
+
     switch(order) {
-        case null || '오래된 순서':
-            favorites
-            db.query(`SELECT * FROM diary WHERE id='${userId}'`, (err, rows, fields) => {
-                if (rows.length === 0) {
-                    return
-                }
-                resArr[1] = rows;
-                res.send(resArr);
-            })
+        case null || '오래된 순서' :
+            cards();
             break;
         case '최신 순서':
-            favorites
-            db.query(`SELECT * FROM diary WHERE id='${userId}' ORDER BY date DESC`, async function(err, rows, fields) {
-                if (rows.length === 0) {
-                    res.send('Nothing');
-                    return;
-                }
-                resArr[1] = rows;
-                res.send(resArr);
-            })
+            cards(' ORDER BY date DESC');
             break;
         default:
-            favorites
-            db.query(`SELECT * FROM diary WHERE id='${userId}' AND dog_name='${order}'`, async function(err, rows, fields) {
-                if (rows.length === 0) {
-                    res.send('Nothing');
-                    return;
-                }
-                resArr[1] = rows;
-                res.send(resArr);
-            })
+            cards(` AND dog_name='${order}'`);
             break;
     }
 })
@@ -400,33 +389,25 @@ app.post('/order', (req, res) => {
         })
 
         const { order } = req.body;
+        const cards = (state = '') => {
+            db.query(`SELECT * FROM diary WHERE id='${userId}'` + state, async (err, rows, fields) => {
+                if (rows.length === 0) {
+                    res.send('Nothing');
+                    return;
+                }
+                res.send(rows)
+            })
+        }
+        
         switch(order) {
             case '최신 순서':
-                db.query(`SELECT * FROM diary WHERE id='${userId}' ORDER BY date DESC`, async function(err, rows, fields) {
-                    if (rows.length === 0) {
-                        res.send('Nothing');
-                        return;
-                    }
-                    res.send(rows);
-                })
+                cards(' ORDER BY date DESC');
                 break;
             case '오래된 순서':
-                db.query(`SELECT * FROM diary WHERE id='${userId}' ORDER BY date ASC`, async function(err, rows, fields) {
-                    if (rows.length === 0) {
-                        res.send('Nothing');
-                        return;
-                    }
-                    res.send(rows);
-                })
+                cards(' ORDER BY date ASC');
                 break;
             default:
-                db.query(`SELECT * FROM diary WHERE id='${userId}' AND dog_name='${order}'`, async function(err, rows, fields) {
-                    if (rows.length === 0) {
-                        res.send('Nothing');
-                        return;
-                    }
-                    res.send(rows);
-                })
+                cards(` AND dog_name='${order}'`);
                 break;
         }
 })
@@ -453,7 +434,6 @@ app.post('/get-diary', (req, res) => {
     const { imageName } = req.body;
     db.query(`SELECT * FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         res.send(rows[0]);
-        console.log(rows[0]);
     })
 })
 
@@ -477,7 +457,6 @@ app.post('/update-diary', upload.single('img'), (req, res, next) => {
     const reqArr = [];
     if (req.body.info) {
         reqArr.push(JSON.parse(req.body.info));
-        console.log(reqArr);
 
         // image
         fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${reqArr[0].imageName}`, (err) => {
