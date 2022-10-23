@@ -8,7 +8,6 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const multer  = require('multer')
 const path = require("path");
-const { Console } = require('console');
 const storage = multer.diskStorage({
     destination: './photos',
     filename: function(req, file, cb) {
@@ -20,6 +19,7 @@ const upload = multer({
     limits: { fileSize: 1000000 }
 });
 // const { auth } = require('./middleware/auth');
+
 
 // database 연동
 const db = mysql.createConnection({
@@ -37,6 +37,34 @@ app.use(cookieParser());
 app.use(express.static('photos'));
 
 
+// Banner
+app.get('/calender', (req, res) => {
+
+    // auth
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+    })
+
+    // data
+    db.query(`SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date FROM diary WHERE id='${userId}' GROUP BY CAST(date AS DATE)`,
+     async (err, rows, fields) => {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+        res.send(rows);
+    })
+})
 
 // Join 
 app.post('/join', async function (req, res) {
@@ -179,9 +207,10 @@ app.post('/info', async function (req, res) {
 })
 
 // Mypage - withdrawal
-app.get('/withdrawal', function (req, res) {
+app.post('/withdrawal', function (req, res) {
     const { access_token } = req.cookies;
     const { userId } = jwt.verify(access_token, 'secure');
+    const { userPw } = req.body;
 
     // auth
     if (!access_token) {
@@ -196,14 +225,20 @@ app.get('/withdrawal', function (req, res) {
         }
     })
 
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+        if (!await argon2.verify(rows[0].pw, userPw)) {
+            res.send('Fail');
+            return;
+        }
+    })
+
+    // 비밀번호 잘못 치면 삭제되지 않고 알림 뜨도록 코드 예외처리 변경
+
+
     // data
     const tables = ['diary', 'dog', 'user'];
     tables.forEach((table) => {
-        db.query(`SELECT * FROM ${table} WHERE id='${userId}'`, async function(err, rows, fields) {
-            if (!await argon2.verify(rows[0].pw, userPw)) {
-                res.send('Fail');
-                return;
-            }
+        db.query(`SELECT * FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
             if (rows.length !== 0) {
                 db.query(`DELETE FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
                     if (err) {
@@ -430,7 +465,7 @@ app.post('/order', (req, res) => {
     })
 
     // data
-    const {order } = req.body;
+    const { order } = req.body;
     const getCards = (option) => {
         db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT 9`, (err, rows, fields) => {
         if (rows.length === 0) {
