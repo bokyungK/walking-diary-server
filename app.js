@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const multer  = require('multer')
 const path = require("path");
+const { Console } = require('console');
 const storage = multer.diskStorage({
     destination: './photos',
     filename: function(req, file, cb) {
@@ -316,7 +317,8 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
 
 
 // MyDiary
-app.get('/diaries', function(req, res) {
+    // basic cards
+app.post('/diaries', (req, res) => {
 
     // auth
     const { access_token } = req.cookies;
@@ -334,14 +336,121 @@ app.get('/diaries', function(req, res) {
     })
 
     // data
-    db.query(`SELECT * FROM diary WHERE id='${userId}'`, (err, rows, fields) => {
+    const { order } = req.body;
+    const getCards = (option) => {
+        const resArr = [];
+
+        db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
+            if (rows.length === 0) {
+                res.send('Nothing');
+                return;
+            }
+            resArr.push(rows);
+
+            db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT 9`, (err, rows, fields) => {
+                if (rows.length === 0) {
+                    res.send('Nothing');
+                    return;
+                }
+                resArr.push(rows);
+                res.send(resArr);
+            })
+        })
+    }
+
+    switch(order) {
+        case '최신 순서':
+            getCards('ORDER BY date DESC');
+            break;
+        case '오래된 순서':
+            getCards('ORDER BY date ASC');
+            break;
+        default:
+            getCards(`AND dog_name='${order}'`);
+    }
+})
+
+    // more cards
+app.post('/more-diaries', (req, res) => {
+
+    // auth
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
+    })
+
+    // data
+    const { share, order } = req.body;
+    const getCards = (option) => {
+        db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT ${share * 9}, 9`, (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('Nothing');
             return;
         }
-        
         res.send(rows);
+        })
+    }
+
+    switch(order) {
+        case '최신 순서':
+            getCards('ORDER BY date DESC');
+            break;
+        case '오래된 순서':
+            getCards('ORDER BY date ASC');
+            break;
+        default:
+            getCards(`AND dog_name='${order}'`);
+    }
+})
+
+app.post('/order', (req, res) => {
+
+    // auth
+    const { access_token } = req.cookies;
+    if (!access_token) {
+        res.send('There is no access_token');
+        return;
+    }
+
+    const { userId } = jwt.verify(access_token, 'secure');
+    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
+        if (rows.length === 0) {
+            res.send('This is not a valid token');
+            return;
+        }
     })
+
+    // data
+    const {order } = req.body;
+    const getCards = (option) => {
+        db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT 9`, (err, rows, fields) => {
+        if (rows.length === 0) {
+            res.send('Nothing');
+            return;
+        }
+        res.send(rows);
+        })
+    }
+
+    switch(order) {
+        case '최신 순서':
+            getCards('ORDER BY date DESC');
+            break;
+        case '오래된 순서':
+            getCards('ORDER BY date ASC');
+            break;
+        default:
+            getCards(`AND dog_name='${order}'`);
+    }
 })
 
 // DetailedDiary
