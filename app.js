@@ -18,7 +18,7 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 1000000 }
 });
-// const { auth } = require('./middleware/auth');
+const { checkUser } = require('./middleware/auth');
 
 
 // database 연동
@@ -38,28 +38,12 @@ app.use(express.static('photos'));
 
 
 // Banner
-app.get('/calender', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
-    // data
-    db.query(`SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date FROM diary WHERE id='${userId}' GROUP BY CAST(date AS DATE)`,
+app.get('/calender', checkUser, (req, res) => {
+    // get writed dates
+    db.query(`SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date FROM diary WHERE id='${res.locals.userId}' GROUP BY CAST(date AS DATE)`,
      async (err, rows, fields) => {
         if (rows.length === 0) {
-            res.send('This is not a valid token');
+            res.send('Nothing');
             return;
         }
         res.send(rows);
@@ -104,24 +88,16 @@ app.post('/login', function (req, res) {
 })
 
 // Mypage
-app.get('/info', function (req, res) {
-    const { access_token } = req.cookies;
-
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-
-    db.query(`SELECT name, id FROM user WHERE id='${userId}'`, function(err, rows, fields) {
+app.get('/info', checkUser, function (req, res) {
+    // get user, dog tables info
+    db.query(`SELECT name, id FROM user WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
-            res.send('This is not a valid token');
+            res.send('Nothing');
             return;
         }
         const res1 = rows[0];
 
-        db.query(`SELECT dog_name_1, dog_name_2, dog_name_3 FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
+        db.query(`SELECT dog_name_1, dog_name_2, dog_name_3 FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
             if (rows.length === 0) {
                 res.send(res1);
                 return;
@@ -207,25 +183,10 @@ app.post('/info', async function (req, res) {
 })
 
 // Mypage - withdrawal
-app.post('/withdrawal', function (req, res) {
-    const { access_token } = req.cookies;
-    const { userId } = jwt.verify(access_token, 'secure');
+app.post('/withdrawal', checkUser, function (req, res) {
     const { userPw } = req.body;
 
-    // auth
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+    db.query(`SELECT * FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
         if (!await argon2.verify(rows[0].pw, userPw)) {
             res.send('Fail');
             return;
@@ -234,13 +195,12 @@ app.post('/withdrawal', function (req, res) {
 
     // 비밀번호 잘못 치면 삭제되지 않고 알림 뜨도록 코드 예외처리 변경
 
-
     // data
     const tables = ['diary', 'dog', 'user'];
     tables.forEach((table) => {
-        db.query(`SELECT * FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
+        db.query(`SELECT * FROM ${table} WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
             if (rows.length !== 0) {
-                db.query(`DELETE FROM ${table} WHERE id='${userId}'`, function(err, rows, fields) {
+                db.query(`DELETE FROM ${table} WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
                     if (err) {
                         throw err;
                     }
@@ -251,7 +211,7 @@ app.post('/withdrawal', function (req, res) {
     res.send('Success');
 
     // image
-    const directory = `./photos/${userId}`;
+    const directory = `./photos/${res.locals.userId}`;
     const isTrue = fs.existsSync(directory);
     if (isTrue) {
         fs.rmSync(directory , { recursive: true });
@@ -259,38 +219,16 @@ app.post('/withdrawal', function (req, res) {
 })
 
 // Mypage - logout
-app.get('/logout', function (req, res) {
-    const { access_token } = req.cookies;
-    const { userId } = jwt.verify(access_token, 'secure');
-
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    db.query(`SELECT name, id FROM user WHERE id='${userId}'`, function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-        res.send('Success');
-    })
+app.get('/logout', checkUser, function (req, res) {
+    res.send('Success');
 })
 
 // WriteDiary
-app.get('/get-dogs', function (req, res) {
-    const { access_token } = req.cookies;
-
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-
-    db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
+app.get('/get-dogs', checkUser, function (req, res) {
+    // get dog names
+    db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
         if (rows.length === 0) {
-            res.send('This is not a valid token');
+            res.send('Nothing');
             return;
         }
         const data = rows[0];
@@ -299,25 +237,11 @@ app.get('/get-dogs', function (req, res) {
     })
 })
 
-app.post('/write-diary', upload.single('img'), function(req, res, next) {
+app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
     const { date, weather, selectedDog, title, content } = JSON.parse(req.body.info);
-    const { access_token } = req.cookies;
-    const { userId } = jwt.verify(access_token, 'secure');
-
-    // auth
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
 
     // data
-    db.query(`SELECT * FROM diary WHERE id='${userId}'`, function(err, rows, fields) {
+    db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND dog_name='${selectedDog}'`, function(err, rows, fields) {
         const day = `${new Date().getFullYear()}-${new Date().getMonth() + 1 < 10 ? '0' + (new Date().getMonth() + 1) : new Date().getMonth() + 1}-${new Date().getDate() < 10 ? '0' + new Date().getDate() : new Date().getDate()}`;
         const fileName = {
             diaryLength: rows.length + 1,
@@ -327,8 +251,8 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
         const fileNewName = `${fileName.today}_${selectedDog}_${fileName.diaryLength}${fileName.path}`
 
         db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content, image_name)
-         VALUES('${userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}', '${fileNewName}')`, 
-         function(err, rows, fields) {
+         VALUES('${res.locals.userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}', '${fileNewName}')`, 
+         (err, rows, fields) => {
             if (err) {
                 console.log(err);
                 return;
@@ -337,13 +261,13 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
         })
         
         // image
-        const directory = `./photos/${userId}`;
+        const directory = `./photos/${res.locals.userId}`;
         const isTrue = fs.existsSync(directory);
         if (!isTrue) {
                 fs.mkdirSync(directory);
         }
 
-        fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${fileNewName}`,
+        fs.rename(`./photos/${req.file.filename}`, `./photos/${res.locals.userId}/${fileNewName}`,
          function(err) {
             console.log(err);
          })
@@ -353,36 +277,20 @@ app.post('/write-diary', upload.single('img'), function(req, res, next) {
 
 // MyDiary
     // basic cards
-app.post('/diaries', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
+app.post('/diaries', checkUser, (req, res) => {
     // data
     const { order } = req.body;
     const getCards = (option) => {
         const resArr = [];
 
-        db.query(`SELECT * FROM diary WHERE id='${userId}' AND starred=${1}`, (err, rows, fields) => {
+        db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND starred=${1}`, (err, rows, fields) => {
             if (rows.length === 0) {
-                res.send('Nothing');
-                return;
+                resArr.push('Nothing');
+            } else {
+                resArr.push(rows);
             }
-            resArr.push(rows);
 
-            db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT 9`, (err, rows, fields) => {
+            db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' ${option} LIMIT 9`, (err, rows, fields) => {
                 if (rows.length === 0) {
                     res.send('Nothing');
                     return;
@@ -397,7 +305,7 @@ app.post('/diaries', (req, res) => {
         case '최신 순서':
             getCards('ORDER BY date DESC');
             break;
-        case '오래된 순서':
+        case '오래된 순서' || null:
             getCards('ORDER BY date ASC');
             break;
         default:
@@ -406,27 +314,11 @@ app.post('/diaries', (req, res) => {
 })
 
     // more cards
-app.post('/more-diaries', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
+app.post('/more-diaries', checkUser, (req, res) => {
     // data
     const { share, order } = req.body;
     const getCards = (option) => {
-        db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT ${share * 9}, 9`, (err, rows, fields) => {
+        db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' ${option} LIMIT ${share * 9}, 9`, (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('Nothing');
             return;
@@ -447,27 +339,11 @@ app.post('/more-diaries', (req, res) => {
     }
 })
 
-app.post('/order', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
+app.post('/order', checkUser, (req, res) => {
     // data
     const { order } = req.body;
     const getCards = (option) => {
-        db.query(`SELECT * FROM diary WHERE id='${userId}' ${option} LIMIT 9`, (err, rows, fields) => {
+        db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' ${option} LIMIT 9`, (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('Nothing');
             return;
@@ -489,53 +365,22 @@ app.post('/order', (req, res) => {
 })
 
 // DetailedDiary
-app.post('/get-diary', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
+app.post('/get-diary', checkUser, (req, res) => {
     // data
     const { imageName } = req.body;
-    db.query(`SELECT * FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+    db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         res.send(rows[0]);
     })
 })
 
-app.post('/update-diary', upload.single('img'), (req, res, next) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
+app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
 
     const reqArr = [];
     if (req.body.info) {
         reqArr.push(JSON.parse(req.body.info));
 
         // image
-        fs.rename(`./photos/${req.file.filename}`, `./photos/${userId}/${reqArr[0].imageName}`, (err) => {
+        fs.rename(`./photos/${req.file.filename}`, `./photos/${res.locals.userId}/${reqArr[0].imageName}`, (err) => {
             console.error(1, err);
          })
 
@@ -545,11 +390,11 @@ app.post('/update-diary', upload.single('img'), (req, res, next) => {
 
     // data
     const { weather, dogName, title, content, imageName } = reqArr[0];
-    db.query(`SELECT * FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+    db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         if (rows.length === 0) {
             return;
         }
-        db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}' WHERE id='${userId}' AND image_name='${imageName}'`,
+        db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
         (err, rows, fields) => {
             if (err) {
                 console.error(2, err);
@@ -560,50 +405,18 @@ app.post('/update-diary', upload.single('img'), (req, res, next) => {
     })
 })
 
-app.post('/delete-diary', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
+app.post('/delete-diary', checkUser, (req, res) => {
     // data
     const { imageName } = req.body;
-    db.query(`DELETE FROM diary WHERE id='${userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
+    db.query(`DELETE FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
         res.send('Success');
     })
 })
 
-app.post('/starred', (req, res) => {
-
-    // auth
-    const { access_token } = req.cookies;
-    if (!access_token) {
-        res.send('There is no access_token');
-        return;
-    }
-
-    const { userId } = jwt.verify(access_token, 'secure');
-    db.query(`SELECT * FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('This is not a valid token');
-            return;
-        }
-    })
-
+app.post('/starred', checkUser, (req, res) => {
     // data
     const { starred, imageName } = req.body;
-    db.query(`UPDATE diary SET starred='${starred}' WHERE id='${userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+    db.query(`UPDATE diary SET starred='${starred}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         if (err) {
             console.error(err);
             return;
