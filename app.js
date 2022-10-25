@@ -38,7 +38,7 @@ app.use(express.static('photos'));
 
 
 // Banner
-app.get('/calender', checkUser, (req, res) => {
+app.get('/calendar', checkUser, (req, res) => {
     // get writed dates
     db.query(`SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date FROM diary WHERE id='${res.locals.userId}' GROUP BY CAST(date AS DATE)`,
      async (err, rows, fields) => {
@@ -109,30 +109,19 @@ app.get('/info', checkUser, function (req, res) {
     })
 })
 
-app.post('/info', async function (req, res) {
-    const { access_token } = req.cookies;
+app.post('/info', checkUser, async function (req, res) {
     const { userPw, userNewPw, userDogName1, userDogName2, userDogName3 } = req.body;
-    const { userId } = jwt.verify(access_token, 'secure');
 
     // password
     if (userNewPw !== '') {
-        if (!access_token) {
-            res.send('There is no access_token');
-            return;
-        }
-    
-        db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
-            if (rows.length === 0) {
-                res.send('This is not a valid token');
-                return;
-            }
+        db.query(`SELECT pw FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
             if (!await argon2.verify(rows[0].pw, userPw)) {
                 res.send('Password is not correct');
                 return;
             }
-
+    
             const newHash = await argon2.hash(userNewPw);
-            db.query(`UPDATE user SET pw='${newHash}' WHERE id='${userId}'`, function(err, rows, fields) {
+            db.query(`UPDATE user SET pw='${newHash}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
                 if (err) {
                     res.send('This is not a valid token');
                     return;
@@ -140,44 +129,29 @@ app.post('/info', async function (req, res) {
             })
         })
     }
-    
+   
     // dogs
     const dogNames = [userDogName1[1], userDogName2[1], userDogName3[1]];
     if (dogNames.includes(false)) {
-        if (!access_token) {
-            res.send('There is no access_token');
-            return;
-        }
 
-        db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function(err, rows, fields) {
+        db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
             if (rows.length === 0) {
-                res.send('This is not a valid token');
-                return;
-            }
-            if (!await argon2.verify(rows[0].pw, userPw)) {
-                res.send('Password is not correct');
-                return;
-            }
-            db.query(`SELECT * FROM dog WHERE id='${userId}'`, function(err, rows, fields) {
-                if (rows.length === 0) {
-                    db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${userId}', '${userDogName1[0]}', '${userDogName2[0]}', '${userDogName3[0]}')`,
-                    function(err, rows, fields) {
-                        res.send('Success');
-                    })
-                    return;
-                }
-                db.query('UPDATE dog SET' + 
-                `${dogNames[0] === false ? ` dog_name_1='${userDogName1[0]}'` : ''}` +
-                `${dogNames[1] === false ? `${dogNames[0] === false ? ',' : ''} dog_name_2='${userDogName2[0]}'` : ''}` +
-                `${dogNames[2] === false ? `${dogNames[0] === false || dogNames[1] === false ? ',' : ''} dog_name_3='${userDogName3[0]}'` : ''}` +
-                ` WHERE id='${userId}'`, function(err, rows, fields) {
-                    if (err) {
-                        console.log(err);
-                    }
+                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${res.locals.userId}', '${userDogName1[0]}', '${userDogName2[0]}', '${userDogName3[0]}')`,
+                function(err, rows, fields) {
+                    res.send('Success');
                 })
+                return;
+            }
+            db.query('UPDATE dog SET' + 
+            `${dogNames[0] === false ? ` dog_name_1='${userDogName1[0]}'` : ''}` +
+            `${dogNames[1] === false ? `${dogNames[0] === false ? ',' : ''} dog_name_2='${userDogName2[0]}'` : ''}` +
+            `${dogNames[2] === false ? `${dogNames[0] === false || dogNames[1] === false ? ',' : ''} dog_name_3='${userDogName3[0]}'` : ''}` +
+            ` WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+                if (err) {
+                    console.log(err);
+                }
             })
         })
-        return;
     }
     res.send('Success');
 })
@@ -292,10 +266,10 @@ app.post('/diaries', checkUser, (req, res) => {
 
             db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' ${option} LIMIT 9`, (err, rows, fields) => {
                 if (rows.length === 0) {
-                    res.send('Nothing');
-                    return;
+                    resArr.push('Nothing');
+                } else {
+                    resArr.push(rows);
                 }
-                resArr.push(rows);
                 res.send(resArr);
             })
         })
