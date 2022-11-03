@@ -216,13 +216,11 @@ app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
 
     // data
     db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND dog_name='${selectedDog}'`, function(err, rows, fields) {
-        const day = `${new Date().getFullYear()}-${new Date().getMonth() + 1 < 10 ? '0' + (new Date().getMonth() + 1) : new Date().getMonth() + 1}-${new Date().getDate() < 10 ? '0' + new Date().getDate() : new Date().getDate()}`;
         const fileName = {
             diaryLength: rows.length + 1,
-            today: day.replace('-', '').replace('-', ''),
             path: path.extname(req.file.originalname),
         }
-        const fileNewName = `${fileName.today}_${selectedDog}_${fileName.diaryLength}${fileName.path}`
+        const fileNewName = `${selectedDog}_${fileName.diaryLength}${fileName.path}`
 
         db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content, image_name)
          VALUES('${res.locals.userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}', '${fileNewName}')`, 
@@ -348,7 +346,6 @@ app.post('/get-diary', checkUser, (req, res) => {
 })
 
 app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
-
     const reqArr = [];
     if (req.body.info) {
         reqArr.push(JSON.parse(req.body.info));
@@ -364,18 +361,45 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
 
     // data
     const { weather, dogName, title, content, imageName } = reqArr[0];
-    db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+
+    db.query(`SELECT dog_name FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         if (rows.length === 0) {
             return;
         }
-        db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
-        (err, rows, fields) => {
-            if (err) {
-                console.error(2, err);
-                return;
-            }
-            res.send('Success');
-        })
+        const previousDogName = rows[0].dog_name;
+
+        if (previousDogName === dogName) {
+            db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
+            (err, rows, fields) => {
+                if (err) {
+                    console.error(2, err);
+                    return;
+                }
+                res.send('Success');
+            })
+        } else {
+            db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND dog_name='${dogName}'`, (err, rows, fields) => {
+                const fileName = {
+                    diaryLength: rows.length + 1,
+                    path: imageName.slice(imageName.indexOf('.'), imageName.length),
+                }
+                const fileNewName = `${dogName}_${fileName.diaryLength}${fileName.path}`;
+
+                db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}', image_name='${fileNewName}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
+                (err, rows, fields) => {
+                    if (err) {
+                        console.error(3, err);
+                        return;
+                    }
+
+                    fs.rename(`./photos/${res.locals.userId}/${imageName}`, `./photos/${res.locals.userId}/${fileNewName}`,
+                    function(err) {
+                        console.log(err);
+                    })
+                    res.send(fileNewName);
+                })
+            })
+        }
     })
 })
 
