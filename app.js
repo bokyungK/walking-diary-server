@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsPromises = fs.promises;
 const express = require('express');
 const app = express();
 const cors = require('cors');
@@ -349,12 +350,6 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
     const reqArr = [];
     if (req.body.info) {
         reqArr.push(JSON.parse(req.body.info));
-
-        // image
-        fs.rename(`./photos/${req.file.filename}`, `./photos/${res.locals.userId}/${reqArr[0].imageName}`, (err) => {
-            console.error(1, err);
-         })
-
     } else {
         reqArr.push(req.body);
     }
@@ -372,10 +367,10 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
             db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
             (err, rows, fields) => {
                 if (err) {
-                    console.error(2, err);
+                    console.error(err);
                     return;
                 }
-                res.send('Success');
+                res.send(imageName);
             })
         } else {
             db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND dog_name='${dogName}'`, (err, rows, fields) => {
@@ -386,14 +381,19 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
                 const fileNewName = `${dogName}_${fileName.diaryLength}${fileName.path}`;
 
                 db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}', image_name='${fileNewName}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
-                (err, rows, fields) => {
+                async (err, rows, fields) => {
                     if (err) {
-                        console.error(3, err);
+                        console.error(err);
                         return;
                     }
 
-                    fs.rename(`./photos/${res.locals.userId}/${imageName}`, `./photos/${res.locals.userId}/${fileNewName}`,
-                    function(err) {
+                    // image
+                    await fsPromises.unlink(`./photos/${res.locals.userId}/${imageName}`, (err) => {
+                        console.error(err);
+                    })
+
+                    await fsPromises.rename(`./photos/${req.file.filename}`, `./photos/${res.locals.userId}/${fileNewName}`,
+                    (err) => {
                         console.log(err);
                     })
                     res.send(fileNewName);
@@ -407,6 +407,7 @@ app.post('/delete-diary', checkUser, (req, res) => {
     // data
     const { imageName } = req.body;
     db.query(`DELETE FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
+        await fsPromises.unlink(`./photos/${res.locals.userId}/${imageName}`);
         res.send('Success');
     })
 })
