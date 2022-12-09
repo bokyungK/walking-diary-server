@@ -96,6 +96,7 @@ app.get('/info', checkUser, function (req, res) {
             res.send('Nothing');
             return;
         }
+
         const res1 = rows[0];
 
         db.query(`SELECT dog_name_1, dog_name_2, dog_name_3 FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
@@ -157,6 +158,23 @@ app.post('/info', checkUser, async function (req, res) {
     res.send('Success');
 })
 
+app.post('/delete-dog', checkUser, function (req, res) {
+    const { idx } = req.body;
+
+    // delete dog name
+    db.query(`SELECT name, id FROM user WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+        if (rows.length === 0) {
+            res.send('Nothing');
+            return;
+        }
+
+        const dogName = `dog_name_${idx + 1}`;
+        db.query(`UPDATE dog SET ${dogName}='' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+            res.send('Success');
+        })
+    })
+})
+
 // Mypage - withdrawal
 app.post('/withdrawal', checkUser, function (req, res) {
     const { userPw } = req.body;
@@ -167,8 +185,6 @@ app.post('/withdrawal', checkUser, function (req, res) {
             return;
         }
     })
-
-    // 비밀번호 잘못 치면 삭제되지 않고 알림 뜨도록 코드 예외처리 변경
 
     // data
     const tables = ['diary', 'dog', 'user'];
