@@ -80,6 +80,8 @@ app.post('/login', function (req, res) {
             res.cookie('access_token', access_token, {
                 httpOnly: true,
                 maxAge: 3600000,
+                sameSite: 'none',
+                secure: true,
             });
             res.send('Success');
             return;
@@ -294,7 +296,7 @@ app.post('/diaries', checkUser, (req, res) => {
         case '최신 순서':
             getCards('ORDER BY date DESC');
             break;
-        case '오래된 순서' || null:
+        case '오래된 순서': case null:
             getCards('ORDER BY date ASC');
             break;
         default:
