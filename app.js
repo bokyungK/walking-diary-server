@@ -2,8 +2,8 @@ const fs = require('fs');
 const fsPromises = fs.promises;
 const express = require('express');
 const app = express();
+const db = require('./middleware/db.js');
 const cors = require('cors');
-const mysql = require('mysql2');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
@@ -21,17 +21,7 @@ const upload = multer({
 });
 const { checkUser } = require('./middleware/auth');
 
-
-// database 연동
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'gombobbaeng',
-    database: 'walking_diary'
-});
-db.connect();
-
-app.use(cors({origin: 'http://localhost:3000', credentials: true}));
+app.use(cors({origin: 'https://walking-diary.netlify.app', credentials: true}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

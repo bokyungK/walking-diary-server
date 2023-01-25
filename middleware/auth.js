@@ -1,13 +1,5 @@
-const mysql = require('mysql2');
+const db = require('./db.js');
 const jwt = require('jsonwebtoken');
-
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'gombobbaeng',
-    database: 'walking_diary'
-});
-db.connect();
 
 const checkUser = (req, res, next) => {
     try {
