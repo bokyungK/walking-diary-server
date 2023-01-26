@@ -2,7 +2,6 @@ const fs = require('fs');
 const fsPromises = fs.promises;
 const express = require('express');
 const app = express();
-const db = require('./middleware/db.js');
 const cors = require('cors');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
@@ -20,6 +19,7 @@ const upload = multer({
     limits: { fileSize: 1000000 }
 });
 const { checkUser } = require('./middleware/auth');
+const { db } = require('./middleware/db');
 
 app.use(cors({origin: 'https://walking-diary.netlify.app', credentials: true}));
 app.use(express.json());
@@ -433,6 +433,6 @@ app.post('/starred', checkUser, (req, res) => {
 })
 
 
-app.listen(3001, () => {
+app.listen(8080, () => {
     console.log('Server is running!');
 });
