@@ -8,24 +8,25 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const multer  = require('multer')
 const path = require("path");
-const storage = multer.diskStorage({
-    destination: './photos',
-    filename: function(req, file, cb) {
-        cb(null, new Date().valueOf() + path.extname(file.originalname));
-    }
-  });
+// const storage = multer.diskStorage({
+//     destination: './photos',
+//     filename: function(req, file, cb) {
+//         cb(null, new Date().valueOf() + path.extname(file.originalname));
+//     }
+//   });
 const upload = multer({
-    storage: storage,
+    dest: 'uploads/',
     limits: { fileSize: 1000000 }
 });
 const { checkUser } = require('./middleware/auth');
 const { db } = require('./middleware/db');
 
-app.use(cors({origin: 'https://walking-diary.netlify.app', credentials: true}));
+app.use(cors({origin: 'http://localhost:3000', credentials: true}));
+// https://walking-diary.netlify.app/
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static('photos'));
+app.use(express.static('uploads'));
 
 
 // Banner
@@ -125,28 +126,24 @@ app.post('/info', checkUser, async function (req, res) {
     }
    
     // dogs
-    const dogNames = [userDogName1[1], userDogName2[1], userDogName3[1]];
-    if (dogNames.includes(false)) {
+    const dogNames = [userDogName1, userDogName2, userDogName3];
 
-        db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
-            if (rows.length === 0) {
-                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${res.locals.userId}', '${userDogName1[0]}', '${userDogName2[0]}', '${userDogName3[0]}')`,
-                function(err, rows, fields) {
-                    res.send('Success');
-                })
-                return;
-            }
-            db.query('UPDATE dog SET' + 
-            `${dogNames[0] === false ? ` dog_name_1='${userDogName1[0]}'` : ''}` +
-            `${dogNames[1] === false ? `${dogNames[0] === false ? ',' : ''} dog_name_2='${userDogName2[0]}'` : ''}` +
-            `${dogNames[2] === false ? `${dogNames[0] === false || dogNames[1] === false ? ',' : ''} dog_name_3='${userDogName3[0]}'` : ''}` +
-            ` WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+    db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+        if (rows.length === 0) {
+            db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${res.locals.userId}', '${dogNames[0]}', '${dogNames[1]}', '${dogNames[2]}')`,
+            function(err, rows, fields) {
                 if (err) {
                     console.log(err);
                 }
             })
-        })
-    }
+        } else {
+            db.query(`UPDATE dog SET dog_name_1='${dogNames[0]}', dog_name_2='${dogNames[1]}', dog_name_3='${dogNames[2]}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+                if (err) {
+                    console.log(err);
+                }
+            })
+        }
+    })
     res.send('Success');
 })
 
@@ -194,7 +191,7 @@ app.post('/withdrawal', checkUser, function (req, res) {
     res.send('Success');
 
     // image
-    const directory = `./photos/${res.locals.userId}`;
+    const directory = `./uploads/${res.locals.userId}`;
     const isTrue = fs.existsSync(directory);
     if (isTrue) {
         fs.rmSync(directory , { recursive: true });
@@ -224,34 +221,29 @@ app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
     const { date, weather, selectedDog, title, content } = JSON.parse(req.body.info);
 
     // data
-    db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND dog_name='${selectedDog}'`, function(err, rows, fields) {
-        const fileName = {
-            diaryLength: rows.length + 1,
-            path: path.extname(req.file.originalname),
-        }
-        const fileNewName = `${selectedDog}_${fileName.diaryLength}${fileName.path}`
+    const fileName = `${req.file.filename}${path.extname(req.file.originalname)}`
 
-        db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content, image_name)
-         VALUES('${res.locals.userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}', '${fileNewName}')`, 
-         (err, rows, fields) => {
-            if (err) {
-                console.log(err);
-                return;
-            }
-            res.send(fileNewName);
-        })
-        
-        // image
-        const directory = `./photos/${res.locals.userId}`;
-        const isTrue = fs.existsSync(directory);
-        if (!isTrue) {
-                fs.mkdirSync(directory);
-        }
-
-        fs.rename(`./photos/${req.file.filename}`, `./photos/${res.locals.userId}/${fileNewName}`,
-         function(err) {
+    db.query(`INSERT INTO diary(id, date, weather, dog_name, title, content, image_name)
+        VALUES('${res.locals.userId}', '${date.join(' ')}', '${weather}', '${selectedDog}', '${title}', '${content}', '${fileName}')`, 
+        (err, rows, fields) => {
+        if (err) {
             console.log(err);
-         })
+            return;
+        }
+        res.send(fileName);
+    })
+    
+    // image
+    const directory = `./uploads/${res.locals.userId}`;
+    const isTrue = fs.existsSync(directory);
+    if (!isTrue) {
+            fs.mkdirSync(directory);
+    }
+
+    fs.rename(`./uploads/${req.file.filename}`, `./uploads/${res.locals.userId}/${fileName}`, function(err) {
+        if (err) {
+            console.log(err);
+        }
     })
 })
 
@@ -369,45 +361,21 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
         if (rows.length === 0) {
             return;
         }
-        const previousDogName = rows[0].dog_name;
 
-        if (previousDogName === dogName) {
-            db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
-            (err, rows, fields) => {
-                if (err) {
-                    console.error(err);
-                    return;
-                }
-                res.send(imageName);
-            })
-        } else {
-            db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND dog_name='${dogName}'`, (err, rows, fields) => {
-                const fileName = {
-                    diaryLength: rows.length + 1,
-                    path: imageName.slice(imageName.indexOf('.'), imageName.length),
-                }
-                const fileNewName = `${dogName}_${fileName.diaryLength}${fileName.path}`;
+        const fileName = `${req.file.filename}${path.extname(req.file.originalname)}`
 
-                db.query(`UPDATE diary SET weather='${weather}', dog_name='${dogName}', title='${title}', content='${content}', image_name='${fileNewName}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
-                async (err, rows, fields) => {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
+        db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}', image_name='${fileName}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
+        async function (err, rows, fields) {
+            if (err) {
+                console.error(err);
+                return;
+            }
 
-                    // image
-                    await fsPromises.unlink(`./photos/${res.locals.userId}/${imageName}`, (err) => {
-                        console.error(err);
-                    })
-
-                    await fsPromises.rename(`./photos/${req.file.filename}`, `./photos/${res.locals.userId}/${fileNewName}`,
-                    (err) => {
-                        console.log(err);
-                    })
-                    res.send(fileNewName);
-                })
-            })
-        }
+            // image
+            await fsPromises.unlink(`./uploads/${res.locals.userId}/${imageName}`);
+            await fsPromises.rename(`./uploads/${req.file.filename}`, `./uploads/${res.locals.userId}/${fileName}`);
+            res.send(fileName);
+        })
     })
 })
 
@@ -415,7 +383,7 @@ app.post('/delete-diary', checkUser, (req, res) => {
     // data
     const { imageName } = req.body;
     db.query(`DELETE FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
-        await fsPromises.unlink(`./photos/${res.locals.userId}/${imageName}`);
+        await fsPromises.unlink(`./uploads/${res.locals.userId}/${imageName}`);
         res.send('Success');
     })
 })
@@ -433,6 +401,6 @@ app.post('/starred', checkUser, (req, res) => {
 })
 
 
-app.listen(8080, () => {
+app.listen(3001, () => {
     console.log('Server is running!');
 });

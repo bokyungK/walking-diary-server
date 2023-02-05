@@ -1,4 +1,4 @@
-const db = require('./db.js');
+const { db } = require('./db.js');
 const jwt = require('jsonwebtoken');
 
 const checkUser = (req, res, next) => {
