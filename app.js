@@ -21,7 +21,7 @@ const upload = multer({
 const { checkUser } = require('./middleware/auth');
 const { db } = require('./middleware/db');
 
-app.use(cors({origin: 'https://walking-diary.netlify.app/', credentials: true}));
+app.use(cors({origin: 'https://walking-diary.netlify.app', credentials: true}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -252,6 +252,7 @@ app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
 app.post('/diaries', checkUser, (req, res) => {
     // data
     const { order } = req.body;
+    console.log(order);
     const getCards = (option) => {
         const resArr = [];
 
@@ -273,11 +274,11 @@ app.post('/diaries', checkUser, (req, res) => {
         })
     }
 
-    switch(order) {
-        case '최신 순서':
+    switch(order) { 
+        case '최신 순서': case undefined:
             getCards('ORDER BY date DESC');
             break;
-        case '오래된 순서': case null:
+        case '오래된 순서':
             getCards('ORDER BY date ASC');
             break;
         default:
