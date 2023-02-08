@@ -21,8 +21,7 @@ const upload = multer({
 const { checkUser } = require('./middleware/auth');
 const { db } = require('./middleware/db');
 
-app.use(cors({origin: 'http://localhost:3000', credentials: true}));
-// https://walking-diary.netlify.app/
+app.use(cors({origin: 'https://walking-diary.netlify.app/', credentials: true}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -401,6 +400,6 @@ app.post('/starred', checkUser, (req, res) => {
 })
 
 
-app.listen(3001, () => {
+app.listen(8080, () => {
     console.log('Server is running!');
 });
