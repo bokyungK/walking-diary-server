@@ -21,7 +21,8 @@ const upload = multer({
 const { checkUser } = require('./middleware/auth');
 const { db } = require('./middleware/db');
 
-app.use(cors({origin: 'https://walking-diary.netlify.app', credentials: true}));
+app.use(cors({origin: 'http://localhost:3000', credentials: true}));
+// https://app.walking-diary-server.site
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -70,6 +71,7 @@ app.post('/login', function (req, res) {
             res.cookie('access_token', access_token, {
                 httpOnly: true,
                 maxAge: 3600000,
+                // 10000
                 sameSite: 'none',
                 secure: true,
             });
@@ -187,6 +189,7 @@ app.post('/withdrawal', checkUser, function (req, res) {
             }
         })
     })
+    res.clearCookie('access_token');
     res.send('Success');
 
     // image
@@ -199,6 +202,7 @@ app.post('/withdrawal', checkUser, function (req, res) {
 
 // Mypage - logout
 app.get('/logout', checkUser, function (req, res) {
+    res.clearCookie('access_token');
     res.send('Success');
 })
 
@@ -252,7 +256,6 @@ app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
 app.post('/diaries', checkUser, (req, res) => {
     // data
     const { order } = req.body;
-    console.log(order);
     const getCards = (option) => {
         const resArr = [];
 
@@ -301,7 +304,7 @@ app.post('/more-diaries', checkUser, (req, res) => {
     }
 
     switch(order) {
-        case '최신 순서':
+        case '최신 순서': case undefined:
             getCards('ORDER BY date DESC');
             break;
         case '오래된 순서':
@@ -357,14 +360,20 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
     // data
     const { weather, dogName, title, content, imageName } = reqArr[0];
 
-    db.query(`SELECT dog_name FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
+    db.query(`SELECT dog_name, image_name FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         if (rows.length === 0) {
             return;
         }
 
-        const fileName = `${req.file.filename}${path.extname(req.file.originalname)}`
+        const newfileName = [];
+        if (req.file === undefined) {
+            newfileName.push('');
+        } else {
+            newfileName.push(`${req.file.filename}${path.extname(req.file.originalname)}`);
+        }
 
-        db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}', image_name='${fileName}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
+        db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}', dog_name='${dogName}'
+        ${newfileName[0] === '' ? '' : `, image_name='${newfileName[0]}'`} WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
         async function (err, rows, fields) {
             if (err) {
                 console.error(err);
@@ -372,9 +381,13 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
             }
 
             // image
+            if (newfileName[0] === '') {
+                res.send(imageName);
+                return;
+            }
             await fsPromises.unlink(`./uploads/${res.locals.userId}/${imageName}`);
-            await fsPromises.rename(`./uploads/${req.file.filename}`, `./uploads/${res.locals.userId}/${fileName}`);
-            res.send(fileName);
+            await fsPromises.rename(`./uploads/${req.file.filename}`, `./uploads/${res.locals.userId}/${newfileName[0]}`);
+            res.send(newfileName[0]);
         })
     })
 })
@@ -401,6 +414,7 @@ app.post('/starred', checkUser, (req, res) => {
 })
 
 
-app.listen(8080, () => {
+app.listen(3001, () => {
     console.log('Server is running!');
 });
+// 8080
