@@ -9,14 +9,13 @@ const cookieParser = require('cookie-parser');
 const multer  = require('multer')
 const path = require("path");
 // const storage = multer.diskStorage({
-//     destination: './photos',
+//     destination: 'uploads/',
 //     filename: function(req, file, cb) {
 //         cb(null, new Date().valueOf() + path.extname(file.originalname));
 //     }
 //   });
 const upload = multer({
     dest: 'uploads/',
-    limits: { fileSize: 1000000 }
 });
 const { checkUser } = require('./middleware/auth');
 const { db } = require('./middleware/db');
@@ -109,43 +108,42 @@ app.post('/info', checkUser, async function (req, res) {
     const { userPw, userNewPw, userDogName1, userDogName2, userDogName3 } = req.body;
 
     // password
-    if (userNewPw !== '') {
-        db.query(`SELECT pw FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
-            if (!await argon2.verify(rows[0].pw, userPw)) {
-                res.send('Password is not correct');
-                return;
-            }
-    
+    db.query(`SELECT pw FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
+        if (!await argon2.verify(rows[0].pw, userPw)) {
+            res.send('Password is not correct');
+            return;
+        }
+
+        if (userNewPw !== '') {
             const newHash = await argon2.hash(userNewPw);
             db.query(`UPDATE user SET pw='${newHash}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
                 if (err) {
-                    res.send('This is not a valid token');
-                    return;
-                }
-            })
-        })
-    }
-   
-    // dogs
-    const dogNames = [userDogName1, userDogName2, userDogName3];
-
-    db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
-        if (rows.length === 0) {
-            db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${res.locals.userId}', '${dogNames[0]}', '${dogNames[1]}', '${dogNames[2]}')`,
-            function(err, rows, fields) {
-                if (err) {
-                    console.log(err);
-                }
-            })
-        } else {
-            db.query(`UPDATE dog SET dog_name_1='${dogNames[0]}', dog_name_2='${dogNames[1]}', dog_name_3='${dogNames[2]}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
-                if (err) {
-                    console.log(err);
+                    console.error(err);
                 }
             })
         }
+
+        // dogs
+        const dogNames = [userDogName1, userDogName2, userDogName3];
+
+        db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+            if (rows.length === 0) {
+                db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${res.locals.userId}', '${dogNames[0]}', '${dogNames[1]}', '${dogNames[2]}')`,
+                function(err, rows, fields) {
+                    if (err) {
+                        console.log(err);
+                    }
+                })
+            } else {
+                db.query(`UPDATE dog SET dog_name_1='${dogNames[0]}', dog_name_2='${dogNames[1]}', dog_name_3='${dogNames[2]}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+                    if (err) {
+                        console.log(err);
+                    }
+                })
+            }
+        })
+        res.send('Success');
     })
-    res.send('Success');
 })
 
 app.post('/delete-dog', checkUser, function (req, res) {
