@@ -70,7 +70,6 @@ app.post('/login', function (req, res) {
             res.cookie('access_token', access_token, {
                 httpOnly: true,
                 maxAge: 3600000,
-                // 10000
                 sameSite: 'none',
                 secure: true,
             });
@@ -146,25 +145,8 @@ app.post('/info', checkUser, async function (req, res) {
     })
 })
 
-app.post('/delete-dog', checkUser, function (req, res) {
-    const { idx } = req.body;
-
-    // delete dog name
-    db.query(`SELECT name, id FROM user WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
-        if (rows.length === 0) {
-            res.send('Nothing');
-            return;
-        }
-
-        const dogName = `dog_name_${idx + 1}`;
-        db.query(`UPDATE dog SET ${dogName}='' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
-            res.send('Success');
-        })
-    })
-})
-
 // Mypage - withdrawal
-app.post('/withdrawal', checkUser, function (req, res) {
+app.delete('/withdrawal', checkUser, (req, res) => {
     const { userPw } = req.body;
 
     db.query(`SELECT * FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
@@ -251,9 +233,9 @@ app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
 
 // MyDiary
     // basic cards
-app.post('/diaries', checkUser, (req, res) => {
+app.get('/diaries', checkUser, (req, res) => {
     // data
-    const { order } = req.body;
+    const { order } = req.query;
     const getCards = (option) => {
         const resArr = [];
 
@@ -288,9 +270,9 @@ app.post('/diaries', checkUser, (req, res) => {
 })
 
     // more cards
-app.post('/more-diaries', checkUser, (req, res) => {
+app.get('/more-diaries', checkUser, (req, res) => {
     // data
-    const { share, order } = req.body;
+    const { share, order } = req.query;
     const getCards = (option) => {
         db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' ${option} LIMIT ${share * 9}, 9`, (err, rows, fields) => {
         if (rows.length === 0) {
@@ -313,9 +295,9 @@ app.post('/more-diaries', checkUser, (req, res) => {
     }
 })
 
-app.post('/order', checkUser, (req, res) => {
+app.get('/order', checkUser, (req, res) => {
     // data
-    const { order } = req.body;
+    const { order } = req.query;
     const getCards = (option) => {
         db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' ${option} LIMIT 9`, (err, rows, fields) => {
         if (rows.length === 0) {
@@ -339,15 +321,15 @@ app.post('/order', checkUser, (req, res) => {
 })
 
 // DetailedDiary
-app.post('/get-diary', checkUser, (req, res) => {
+app.get('/get-diary', checkUser, (req, res) => {
     // data
-    const { imageName } = req.body;
+    const { imageName } = req.query;
     db.query(`SELECT * FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
         res.send(rows[0]);
     })
 })
 
-app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
+app.put('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
     const reqArr = [];
     if (req.body.info) {
         reqArr.push(JSON.parse(req.body.info));
@@ -390,16 +372,17 @@ app.post('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
     })
 })
 
-app.post('/delete-diary', checkUser, (req, res) => {
+app.delete('/delete-diary', checkUser, (req, res) => {
     // data
     const { imageName } = req.body;
+
     db.query(`DELETE FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
         await fsPromises.unlink(`./uploads/${res.locals.userId}/${imageName}`);
         res.send('Success');
     })
 })
 
-app.post('/starred', checkUser, (req, res) => {
+app.patch('/starred', checkUser, (req, res) => {
     // data
     const { starred, imageName } = req.body;
     db.query(`UPDATE diary SET starred='${starred}' WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, (err, rows, fields) => {
