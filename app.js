@@ -42,12 +42,12 @@ app.get('/calendar', checkUser, (req, res) => {
 })
 
 // Join 
-app.post('/join', async function (req, res) {
+app.post('/join', async (req, res) => {
     const { userId, userPw, userName } = req.body;
     const hash = await argon2.hash(userPw);
 
     db.query(`INSERT INTO user(id, pw, name) VALUES('${userId}', '${hash}', '${userName}')`,
-    function (err, rows, fields) {
+     (err, rows, fields) => {
         if (err) {
             res.send('Fail');
             return;
@@ -57,10 +57,10 @@ app.post('/join', async function (req, res) {
 });
 
 // Login
-app.post('/login', function (req, res) {
+app.post('/login', (req, res) => {
     const { userId, userPw } = req.body;
 
-    db.query(`SELECT pw FROM user WHERE id='${userId}'`, async function (err, rows, fields) {
+    db.query(`SELECT pw FROM user WHERE id='${userId}'`, async (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('Fail_id');
             return;
@@ -81,9 +81,9 @@ app.post('/login', function (req, res) {
 })
 
 // Mypage
-app.get('/info', checkUser, function (req, res) {
+app.get('/info', checkUser, (req, res) => {
     // get user, dog tables info
-    db.query(`SELECT name, id FROM user WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+    db.query(`SELECT name, id FROM user WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('Nothing');
             return;
@@ -91,7 +91,7 @@ app.get('/info', checkUser, function (req, res) {
 
         const res1 = rows[0];
 
-        db.query(`SELECT dog_name_1, dog_name_2, dog_name_3 FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+        db.query(`SELECT dog_name_1, dog_name_2, dog_name_3 FROM dog WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
             if (rows.length === 0) {
                 res.send(res1);
                 return;
@@ -103,11 +103,11 @@ app.get('/info', checkUser, function (req, res) {
     })
 })
 
-app.post('/info', checkUser, async function (req, res) {
+app.post('/info', checkUser, async (req, res) => {
     const { userPw, userNewPw, userDogName1, userDogName2, userDogName3 } = req.body;
 
     // password
-    db.query(`SELECT pw FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
+    db.query(`SELECT pw FROM user WHERE id='${res.locals.userId}'`, async (err, rows, fields) => {
         if (!await argon2.verify(rows[0].pw, userPw)) {
             res.send('Password is not correct');
             return;
@@ -115,7 +115,7 @@ app.post('/info', checkUser, async function (req, res) {
 
         if (userNewPw !== '') {
             const newHash = await argon2.hash(userNewPw);
-            db.query(`UPDATE user SET pw='${newHash}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+            db.query(`UPDATE user SET pw='${newHash}' WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
                 if (err) {
                     console.error(err);
                 }
@@ -125,16 +125,17 @@ app.post('/info', checkUser, async function (req, res) {
         // dogs
         const dogNames = [userDogName1, userDogName2, userDogName3];
 
-        db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+        db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
             if (rows.length === 0) {
                 db.query(`INSERT INTO dog(id, dog_name_1, dog_name_2, dog_name_3) VALUES('${res.locals.userId}', '${dogNames[0]}', '${dogNames[1]}', '${dogNames[2]}')`,
-                function(err, rows, fields) {
+                 (err, rows, fields) => {
                     if (err) {
                         console.log(err);
                     }
                 })
             } else {
-                db.query(`UPDATE dog SET dog_name_1='${dogNames[0]}', dog_name_2='${dogNames[1]}', dog_name_3='${dogNames[2]}' WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+                db.query(`UPDATE dog SET dog_name_1='${dogNames[0]}', dog_name_2='${dogNames[1]}', dog_name_3='${dogNames[2]}' WHERE id='${res.locals.userId}'`,
+                 (err, rows, fields) => {
                     if (err) {
                         console.log(err);
                     }
@@ -149,7 +150,7 @@ app.post('/info', checkUser, async function (req, res) {
 app.delete('/withdrawal', checkUser, (req, res) => {
     const { userPw } = req.body;
 
-    db.query(`SELECT * FROM user WHERE id='${res.locals.userId}'`, async function(err, rows, fields) {
+    db.query(`SELECT * FROM user WHERE id='${res.locals.userId}'`, async (err, rows, fields) => {
         if (!await argon2.verify(rows[0].pw, userPw)) {
             res.send('Fail');
             return;
@@ -159,9 +160,9 @@ app.delete('/withdrawal', checkUser, (req, res) => {
     // data
     const tables = ['diary', 'dog', 'user'];
     tables.forEach((table) => {
-        db.query(`SELECT * FROM ${table} WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+        db.query(`SELECT * FROM ${table} WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
             if (rows.length !== 0) {
-                db.query(`DELETE FROM ${table} WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+                db.query(`DELETE FROM ${table} WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
                     if (err) {
                         throw err;
                     }
@@ -181,15 +182,15 @@ app.delete('/withdrawal', checkUser, (req, res) => {
 })
 
 // Mypage - logout
-app.get('/logout', checkUser, function (req, res) {
+app.get('/logout', checkUser, (req, res) => {
     res.clearCookie('access_token');
     res.send('Success');
 })
 
 // WriteDiary
-app.get('/get-dogs', checkUser, function (req, res) {
+app.get('/get-dogs', checkUser, (req, res) => {
     // get dog names
-    db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, function(err, rows, fields) {
+    db.query(`SELECT * FROM dog WHERE id='${res.locals.userId}'`, (err, rows, fields) => {
         if (rows.length === 0) {
             res.send('Nothing');
             return;
@@ -223,7 +224,7 @@ app.post('/write-diary', checkUser, upload.single('img'), (req, res, next) => {
             fs.mkdirSync(directory);
     }
 
-    fs.rename(`./uploads/${req.file.filename}`, `./uploads/${res.locals.userId}/${fileName}`, function(err) {
+    fs.rename(`./uploads/${req.file.filename}`, `./uploads/${res.locals.userId}/${fileName}`, (err) => {
         if (err) {
             console.log(err);
         }
@@ -354,7 +355,7 @@ app.put('/update-diary', checkUser, upload.single('img'), (req, res, next) => {
 
         db.query(`UPDATE diary SET weather='${weather}', title='${title}', content='${content}', dog_name='${dogName}'
         ${newfileName[0] === '' ? '' : `, image_name='${newfileName[0]}'`} WHERE id='${res.locals.userId}' AND image_name='${imageName}'`,
-        async function (err, rows, fields) {
+        async (err, rows, fields) => {
             if (err) {
                 console.error(err);
                 return;
@@ -376,7 +377,7 @@ app.delete('/delete-diary', checkUser, (req, res) => {
     // data
     const { imageName } = req.body;
 
-    db.query(`DELETE FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, async function(err, rows, fields) {
+    db.query(`DELETE FROM diary WHERE id='${res.locals.userId}' AND image_name='${imageName}'`, async (err, rows, fields) => {
         await fsPromises.unlink(`./uploads/${res.locals.userId}/${imageName}`);
         res.send('Success');
     })
